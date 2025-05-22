@@ -1,0 +1,3 @@
+__pycache__/
+PointCloudSegmentation/outputs/
+PointCloudSegmentation/wandb/
