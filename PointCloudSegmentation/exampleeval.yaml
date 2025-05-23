@@ -1,19 +1,18 @@
 defaults:
 - visualization: eval
-num_workers: 0
+num_workers: 2
 batch_size: 1
 cuda: 0
 weight_name: latest
 enable_cudnn: true
-checkpoint_dir: /home/ubuntu/binbin/OutdoorPanopticSeg_V2/outputs/tree_mix
+checkpoint_dir: OutdoorPanopticSeg_V2/outputs/tree_mix
 model_name: PointGroup-PAPER
 precompute_multi_scale: true
 enable_dropout: false
 voting_runs: 1
 data:
   fold:
-#  - /home/ubuntu/binbin/OutdoorPanopticSeg_V2/data_test/wythan/map/wythan_woods_all_trees_ground.ply
-  - /home/ubuntu/binbin/OutdoorPanopticSeg_V2/data_test/todolist_2/17662.ply
+  - /home/binbin/OutdoorPanopticSeg_V2/data_test/todolist_2/17662.ply
 
 tracker_options:
   full_res: true

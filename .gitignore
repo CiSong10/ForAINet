@@ -1,3 +1,4 @@
 __pycache__/
-PointCloudSegmentation/outputs/
-PointCloudSegmentation/wandb/
+outputs/
+wandb/
+data_set1_5classes/

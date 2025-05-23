@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Base path   ###adapt
-base_path="YOURLOCATION/ForAINet/PointCloudSegmentation/"
+base_path="../PointCloudSegmentation/"
 
 # Path to the eval.yaml file   ###adapt
 yaml_file="${base_path}/exampleeval.yaml"

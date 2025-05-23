@@ -30,7 +30,7 @@ checkpoint_dir: ""
 # Those arguments within experiment defines which model, dataset and task to be created for benchmarking
 # parameters for Weights and Biases
 wandb:
-  entity: "binbin" #TO ADAPT: change to your own wandb account name
+  entity: "ci-song" #TO ADAPT: change to your own wandb account name
   project: FOR-dataset #panoptic-boost
   log: True
   notes: "set1_5classes treeins"
