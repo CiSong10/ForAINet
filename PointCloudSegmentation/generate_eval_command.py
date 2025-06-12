@@ -21,7 +21,7 @@ def main():
     # ply_output_file = '/home/ubuntu/binbin/OutdoorPanopticSeg_V2/data_test/tiles_50_ULS_Åsmåsan_VUX1_2017_80_120mAGL/ply_output_file_paths.txt'
     
     parser = argparse.ArgumentParser(description="Generate evaluation commands.")
-    parser.add_argument('--ply_output_file', type=str, required=True, help='Path to the ply output file paths.')
+    parser.add_argument('--ply-output-file', type=str, required=True, help='Path to the ply output file paths.')
 
     args = parser.parse_args()
 
