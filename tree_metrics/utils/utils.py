@@ -227,7 +227,7 @@ def cal_DBH_and_centerP(points_for_fitting, fig, im_path, instanceId, min_points
     # Set the subplot's title to display the calculated trunk radius
     ax2.set_title("trunk radius = %1.3f m" % T_radius)
     # Pause for a short time to display the figure
-    plt.pause(1)
+    # plt.pause(1)
     
     # Return the calculated Diameter at Breast Height (DBH) and center coordinates of the tree trunk
     return T_radius*2, point_cloud_x, point_cloud_y

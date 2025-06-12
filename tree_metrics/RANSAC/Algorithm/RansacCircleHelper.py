@@ -72,15 +72,15 @@ class RansacCircleHelper(object):
             raise Exception("The property 'sampling_fraction' should be between 0 and 1")
         
 
-    def run(self)->CircleModel:
+    def run(self) -> Optional[CircleModel]:
         self.validate_hyperparams()
 
         #
         #generate trigrams of points - find some temporary model to hold this model
         #
-        print("Generating trigrams")
+        # print("Generating trigrams")
         trigrams=self.generate_trigam_from_points()
-        print("Generating trigrams complete. Count=%d" % (len(trigrams)))
+        # print("Generating trigrams complete. Count=%d" % (len(trigrams)))
         #
         #for ever triagram find circle model
         #   find the circle that passes through those points
@@ -91,9 +91,7 @@ class RansacCircleHelper(object):
         #
         all_trigram_indices=list(range(0,len(trigrams)))
         fraction=self.sampling_fraction
-        random_count=int(len(all_trigram_indices)*fraction)
-        if random_count>1000000:
-            random_count = 1000000
+        random_count = min(int(len(all_trigram_indices) * fraction), 1_000_000)
         random_trigram_indices=random.sample(all_trigram_indices,random_count)
         #for trig_index in range(0,len(trigrams)):
         progress_count=0
@@ -103,45 +101,35 @@ class RansacCircleHelper(object):
         #if you use a 200X200 image, with salt peper ration of 0.85 and sample fraction of 0.2 then you can generate ample load to test multi-threading
         #
         for trig_index in random_trigram_indices:
-            progress_count+=1
             tri=trigrams[trig_index]
-            if (trig_index%100 ==0):
-                print("PROGRESS:Processing trigram %d of %d, shortlisted=%d  poor inliers=%d" % (progress_count,len(random_trigram_indices),len(lst_trigram_scores),count_of_trigrams_with_poor_inliers))
             try:
                 temp_circle=CircleModel.GenerateModelFrom3Points(tri.P1,tri.P2,tri.P3)
             except Exception as e:
-                print("Could not generate Circle model. Error=%s" % (str(e)))
+                # print("Could not generate Circle model. Error=%s" % (str(e))) # Suppress error message
                 continue
 
             inliers,goodness_score=self.get_inliers(temp_circle,[tri.P1,tri.P2,tri.P3])
             count_inliers=len(inliers)
             if (count_inliers < self.threshold_inlier_count):
-                print("Skipping because of poor inlier count=%d and this is less than threshold=%f)" % (count_inliers, self.threshold_inlier_count))
+                # print("Skipping because of poor inlier count=%d and this is less than threshold=%f)" % (count_inliers, self.threshold_inlier_count))
                 count_of_trigrams_with_poor_inliers+=1
                 continue
             result=(temp_circle,inliers,tri)
 
             lst_trigram_scores.append(result)
+
+            if not lst_trigram_scores:
+                # print("Finished building shortlist of trigrams. No trigrams found. Quitting")
+                return
         #
         #Sort trigrams with lowest error
         #
         sorted_trigram_inliercount=sorted(lst_trigram_scores, key = lambda x: len(x[1]),reverse=True)
-        if (len(sorted_trigram_inliercount) ==0):
-            print("Finished building shortlist of trigrams. No trigrams found. Quitting")
-            return
-        print("Finished building shortlist of trigrams. Count=%d, Max inlier count=%d" % (len(sorted_trigram_inliercount),len(sorted_trigram_inliercount[0][1])))
+        # print("Finished building shortlist of trigrams. Count=%d, Max inlier count=%d" % (len(sorted_trigram_inliercount),len(sorted_trigram_inliercount[0][1])))
         lst_results_gdescent=list()
         jobs=[]
-        for index in range(0,len(sorted_trigram_inliercount)):
-            t=sorted_trigram_inliercount[index]
-            model=t[0]
-            inliers=t[1]
-            trigram:TrigramOfPoints=t[2]
-            new_points=list()
-            new_points.extend(inliers)
-            new_points.append(trigram.P1)
-            new_points.append(trigram.P2)
-            new_points.append(trigram.P3)
+        for model, inliers, trigram in sorted_trigram_inliercount:
+            new_points = inliers + [trigram.P1, trigram.P2, trigram.P3]
             new_thread=threading.Thread(target=self.find_model_using_gradient_descent2,args=(model,new_points,lst_results_gdescent))
             jobs.append(new_thread)
 
@@ -152,11 +140,9 @@ class RansacCircleHelper(object):
         for j in jobs:
             j.join();        
         
-        if (len(lst_results_gdescent) == 0):
-            return None
+        if not lst_results_gdescent:
+            return
 
-        if (len(lst_results_gdescent) == 0):
-            return None
         lst_results_gdescent_sortedby_inlier_count=sorted(lst_results_gdescent,key= lambda x: len(x[1]),reverse=True)
         max_inliers=len(lst_results_gdescent_sortedby_inlier_count[0][1])
         lst_all_results_with_highest_inlier_count= list(filter(lambda x: len(x[1])>=max_inliers, lst_results_gdescent_sortedby_inlier_count))

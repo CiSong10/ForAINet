@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from RANSAC.RANSAC.MatplotUtil import plot_new_points_over_existing_points
 from pathlib import Path
 def run(filename, img, threshold, inlier, instance_id, sampling_fraction=0.25, matplot=True, resolution=0.005):
-    print("Going to process file:%s" % (filename))
+    # print("Going to process file:%s" % (filename))
     #folder_script=os.path.dirname(__file__)
     file_noisy_circle=filename
     try:
@@ -36,14 +36,14 @@ def run(filename, img, threshold, inlier, instance_id, sampling_fraction=0.25, m
         helper.add_points(lst_all_points)
         helper.sampling_fraction=sampling_fraction
         best_model=helper.run() 
-        print("RANSAC-complete") 
+        # print("RANSAC-complete") 
         if (best_model== None):
             print("ERROR! Could not find a suitable model. Try altering ransac-threshold and min inliner count")
             return -1
         #
         #Generate an output image with the model circle overlayed on top of original image
         #
-        print(best_model.R*resolution)
+        # print(best_model.R*resolution)
         return_r=best_model.R*resolution
         #Load input image into array
         np_image_result=io.imread(file_noisy_circle,as_gray=True)
@@ -52,7 +52,7 @@ def run(filename, img, threshold, inlier, instance_id, sampling_fraction=0.25, m
         #Save new image
         #skimage.io.imsave(file_result,np_superimposed)
         #print("Results saved to file:%s" % (file_result))
-        print("------------------------------------------------------------")
+        # print("------------------------------------------------------------")
         if (matplot==True):
             file_result = filename.replace('fittingPointsProj', 'DBHplot')
             plot_new_points_over_existing_points(lst_all_points,new_points,"Outcome of RANSAC algorithm","Original points", "RANSAC", file_result)

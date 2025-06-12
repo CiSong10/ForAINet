@@ -1,9 +1,7 @@
 import os
 import numpy as np
 from scipy import stats
-from utils.ply import read_ply, write_ply
-from utils.utils import output_DTM_as_pc, DTM_generation, cal_DBH_and_centerP, DTM_accuracy, hdbscan_filtering, preprocess_point_cloud,alpha_shape_volume,plot_alpha_shape, compute_volume_with_voxelization, compute_volume_with_convex_hull
-from os.path import exists, join
+import os.path
 import matplotlib.pyplot as plt
 import pyransac3d as pyrsc
 from matplotlib.patches import Circle
@@ -22,29 +20,44 @@ from scipy.interpolate import RectBivariateSpline, interp2d, bisplrep, bisplev, 
 from scipy.spatial import ConvexHull
 from openpyxl import Workbook
 from sklearn.metrics import confusion_matrix
+
+from utils.ply import read_ply, write_ply
+from utils.utils import *
 from tree_metrics.rmse import rmse
-fold= ['/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/CULS/CULS_plot_2_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_1_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/TUWIEN/TUWIEN_test_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_17_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_18_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_22_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_23_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_5_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/RMIT/RMIT_test_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/SCION/SCION_plot_31_annotated_test.ply', '/scratch2/ForAINet/PointCloudSegmentation/data_set1_5classes/treeinsfused/raw/SCION/SCION_plot_61_annotated_test.ply']
+
+
+file_paths = ['data/data_set1_5classes/treeinsfused/raw/CULS/CULS_plot_2_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_1_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/TUWIEN/TUWIEN_test_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_17_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_18_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_22_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_23_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/NIBIO/NIBIO_plot_5_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/RMIT/RMIT_test_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/SCION/SCION_plot_31_annotated_test.ply', 
+        'data/data_set1_5classes/treeinsfused/raw/SCION/SCION_plot_61_annotated_test.ply']
 #Input files directory
-file_path = '/scratch2/OutdoorPanopticSeg_V2/outputs/best_treemix2/eval/2023-08-26_21-51-41/'
+file_path = 'outputs/pretrained/eval/test_1/'
 all_files = os.listdir(file_path)
 matching_files = [filename for filename in all_files if 'Semantic_results_forEval' in filename]
 #output files directory
-directory = file_path+'para_cal_imgs'
+directory = os.path.join(file_path, 'para_cal_imgs')
 if not os.path.exists(directory):
     os.makedirs(directory)
 
 #predefined parameters
 BINSIZE = 0.5 #for dtm rasterization
-height_of_trunkDiameter = 1.3
+breast_height = 1.3
 #th_height_of_tree = 5
 #thre_dbh = 0.1  #threshold for dominant and non-dominant tree
 
 #Iterate over all plots
 for f_idx, filename in enumerate(matching_files):
     #predicted semantic segmentation file path
-    pred_class_label_filename = file_path + filename
+    pred_class_label_filename = os.path.join(file_path, filename)
     #predicted instance segmentation file path
-    pred_ins_label_filename = file_path +filename.replace('Semantic_results_forEval', 'Instance_Results_forEval')
+    pred_ins_label_filename = os.path.join(file_path, filename.replace('Semantic_results_forEval', 'Instance_Results_forEval'))
 
     new_dir_name = "plot" + pred_class_label_filename[-6:-4]
     # Construct the full path to the new directory for new plot
@@ -74,9 +87,9 @@ for f_idx, filename in enumerate(matching_files):
     #DTM of prediction
     dtm_pre = DTM_generation(data_ins['vertex']['x'][idx_pre_ground], data_ins['vertex']['y'][idx_pre_ground], data_ins['vertex']['z'][idx_pre_ground], BINSIZE)
     #output DTM as point cloud
-    pc_out_dest = current_plot+'/floor_gt_pynn'+pred_class_label_filename[-6:-4]+'.ply'
+    pc_out_dest = os.path.join(current_plot, 'floor_gt_pynn' + pred_class_label_filename[-6:-4] + '.ply')
     output_DTM_as_pc(dtm_gt, pc_out_dest)
-    pc_out_dest = current_plot+'/floor_pre_pynn'+pred_class_label_filename[-6:-4]+'.ply'
+    pc_out_dest = os.path.join(current_plot, 'floor_pre_pynn' + pred_class_label_filename[-6:-4] + '.ply')
     output_DTM_as_pc(dtm_pre, pc_out_dest)
     
     #The accuracy of the DTM
@@ -165,7 +178,7 @@ for f_idx, filename in enumerate(matching_files):
         
         # Set the minimum points threshold
         min_points_threshold = 10
-        im_path = current_plot+'/'+ 'preTree'+str(g)+ '_fittingPointsProj.png'
+        im_path = os.path.join(current_plot, 'preTree'+str(g)+ '_fittingPointsProj.png')
         
         if np.size(con_4)<min_points_threshold:
             fig1_path = im_path.replace('fittingPointsProj', '')
@@ -187,19 +200,19 @@ for f_idx, filename in enumerate(matching_files):
         ######################calculate DBH (diameter at breast height)        
         # Get points for fitting circle
         # Define a threshold range for selecting points based on their z-coordinates
-        # We will look for points within the range [height_of_trunkDiameter - 0.5, height_of_trunkDiameter + 0.5]
+        # We will look for points within the range [breast_height - 0.5, breast_height + 0.5]
         # initiate by center points
         center_x = np.mean(filtered_points[:,0])
         center_y = np.mean(filtered_points[:,1])
         veg_xloc_pre[tmp] = center_x
         veg_yloc_pre[tmp] = center_y
         
-        con_1 = np.where(z_tmp > (height_of_trunkDiameter - 0.5))[0]
-        con_2 = np.where(z_tmp < (height_of_trunkDiameter + 0.5))[0]
+        con_1 = np.where(z_tmp > (breast_height - 0.5))[0]
+        con_2 = np.where(z_tmp < (breast_height + 0.5))[0]
         # Select points that belong to the stem class (assumed to be labeled as 2)
         con_3 = np.where(veg_sem_pre[tmp] == 2)
         
-        if np.size(con_3)<min_points_threshold:
+        if np.size(con_3) < min_points_threshold:
             fig1_path = im_path.replace('fittingPointsProj', '')
             plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
             fig.savefig(fig1_path, bbox_inches='tight', pad_inches=0)
@@ -218,8 +231,8 @@ for f_idx, filename in enumerate(matching_files):
             # Increase the increment value for the next iteration (adjust the height range further)
             increment += 0.2
             # Update the height threshold range
-            height_threshold_upper = height_of_trunkDiameter + increment
-            height_threshold_lower = height_of_trunkDiameter - increment
+            height_threshold_upper = breast_height + increment
+            height_threshold_lower = breast_height - increment
 
             # Find new points that satisfy the updated height conditions
             con_1 = np.where(z_tmp > height_threshold_lower)[0]
@@ -361,14 +374,14 @@ for f_idx, filename in enumerate(matching_files):
         ######################calculate DBH (diameter at breast height)        
         # Get points for fitting circle
         # Define a threshold range for selecting points based on their z-coordinates
-        # We will look for points within the range [height_of_trunkDiameter - 0.2, height_of_trunkDiameter + 0.2]
+        # We will look for points within the range [breast_height - 0.2, breast_height + 0.2]
         # initiate by center points
         center_x = np.mean(filtered_points[:,0])
         center_y = np.mean(filtered_points[:,1])
         veg_xloc_gt[tmp] = center_x
         veg_yloc_gt[tmp] = center_y
-        con_1 = np.where(z_tmp > (height_of_trunkDiameter - 0.5))[0]
-        con_2 = np.where(z_tmp < (height_of_trunkDiameter + 0.5))[0]
+        con_1 = np.where(z_tmp > (breast_height - 0.5))[0]
+        con_2 = np.where(z_tmp < (breast_height + 0.5))[0]
         # Select points that belong to the vegetation class (assumed to be labeled as 2)
         con_3 = np.where(veg_sem_gt[tmp]==2)
         
@@ -392,8 +405,8 @@ for f_idx, filename in enumerate(matching_files):
             increment += 0.2
             
             # Update the height threshold range
-            height_threshold_upper = height_of_trunkDiameter + increment
-            height_threshold_lower = height_of_trunkDiameter - increment
+            height_threshold_upper = breast_height + increment
+            height_threshold_lower = breast_height - increment
 
             # Find new points that satisfy the updated height conditions
             con_1 = np.where(z_tmp > height_threshold_lower)[0]
@@ -567,11 +580,11 @@ for f_idx, filename in enumerate(matching_files):
     convex_area = hull.area
     stem_density = (total_gt_ins/convex_area*10000)  #square meters to hectares, 1 hectare (ha) = 10,000 square meters (m²)
     
-    output_path = join(current_plot, 'vegetable_gt_total.ply')
+    output_path = os.path.join(current_plot, 'vegetable_gt_total.ply')
     write_ply(output_path,
             [x_veg_gt, y_veg_gt, z_veg_gt, veg_ins_gt, veg_height_gt, veg_Tdiamater_gt, veg_Cdiamater_gt, cor_veg_ins_pre],
             ['x', 'y', 'z', 'ins_label', 'height_gt', 'trunk_diamater_gt', 'crown_diamater_gt', 'pre_label'])
-    output_path2 = join(current_plot, 'vegetable_pre_total.ply')
+    output_path2 = os.path.join(current_plot, 'vegetable_pre_total.ply')
     write_ply(output_path2,
             [x_veg_pre, y_veg_pre, z_veg_pre, veg_ins_pre, veg_height_pre, veg_Tdiamater_pre, veg_Cdiamater_pre],
             ['x', 'y', 'z', 'ins_label', 'height_pre', 'trunk_diamater_pre', 'crown_diamater_pre'])
@@ -619,8 +632,8 @@ for f_idx, filename in enumerate(matching_files):
 
     #get field DBH data
     gt_labels = veg_ins_gt[indices[c_ind]]
-    current_test_file_name = fold[f_idx].split('/')[-1]
-    field_file_path = '/scratch2/tree_metrics/field_gt/'
+    current_test_file_name = file_paths[f_idx].split('/')[-1]
+    field_file_path = 'tree_metrics/field_gt/'
     file_to_find = current_test_file_name.split('_')[0]
     file_to_find = f"tree_data_{file_to_find}.csv"
     file_full_path = os.path.join(field_file_path, file_to_find)
@@ -791,10 +804,10 @@ for f_idx, filename in enumerate(matching_files):
         for j in range(len(cm[i])):
             ws.cell(row=10 + i, column=1 + j, value=str(cm[i][j]))
         
-    tmp_output_path = current_plot+'/semantic_output.xlsx'
+    tmp_output_path = os.path.join(current_plot, 'semantic_output.xlsx')
     wb.save(tmp_output_path)
     
-    output_path = join(current_plot, 'instance_output.xlsx')
+    output_path = os.path.join(current_plot, 'instance_output.xlsx')
     with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
         df1.to_excel(writer, sheet_name='tree_instance_parameters', index=False)
         
