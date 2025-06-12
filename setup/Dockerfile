@@ -1,5 +1,14 @@
+############################################
+# Stage 1: Builder stage
+############################################
+
 FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04 AS builder
 
+ENV DEBIAN_FRONTEND=noninteractive \
+    CU_VERSION=cu111 \
+    TORCH_CUDA_ARCH_LIST="6.0;7.0;7.5;8.0;8.6"
+
+# Install build tools, Python, and deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
@@ -46,21 +55,14 @@ RUN python3.8 -m pip install --no-cache-dir --upgrade \
     tqdm==4.62.3 \
     wheel==0.37.0
 
-ENV CU_VERSION=cu111
-# 8.0 for BM.GPU4.8, 7.0 for local, 6.0 for P100-SXM2 (Oracle)
-# ENV TORCH_CUDA_ARCH_LIST_VER="6.0+PTX"
-
-# optimized for the Tesla A10's architecture below
-# ENV TORCH_CUDA_ARCH_LIST_VER="8.6+PTX" 
-ENV TORCH_CUDA_ARCH_LIST_VER="6.0;7.0;7.5;8.0;8.6"
-
-
+# Install PyTorch & associated libs
 RUN python3.8 -m pip install --no-cache-dir \
     torch==1.9.0+${CU_VERSION} \
     torchvision==0.10.0+${CU_VERSION} \
     torchaudio==0.9.0 \
     -f https://download.pytorch.org/whl/torch_stable.html
 
+# Install PyG and related dependencies
 RUN python3.8 -m pip install --no-cache-dir \
     torch-scatter==2.0.8 \
     torch-sparse==0.6.12 \
@@ -69,16 +71,15 @@ RUN python3.8 -m pip install --no-cache-dir \
     torch-geometric==1.7.2 \
     -f https://data.pyg.org/whl/torch-1.9.0+${CU_VERSION}.html
 
-RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} python3.8 -m pip install --no-cache-dir \
+RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} python3.8 -m pip install --no-cache-dir \
     git+https://github.com/NVIDIA/MinkowskiEngine.git \
     --install-option="--blas=openblas" --install-option="--force_cuda"
 
-RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
+RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
     git+https://github.com/mit-han-lab/torchsparse.git@v1.4.0
 
-                                              
 # torch-points3d requirements
-RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
+RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
     torch-points-kernels==0.7.0 \
     absl-py==0.14.0 \
     addict==2.4.0 \
@@ -149,7 +150,6 @@ RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} FORCE_CUDA=1 python3.8 -m p
     networkx==2.6.3 \
     notebook==6.4.4 \
     numba==0.50.1 \
-    numpy==1.19.5 \
     nvidia-ml-py3==7.352.0 \
     oauthlib==3.1.1 \
     omegaconf==2.0.6 \
@@ -208,7 +208,6 @@ RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} FORCE_CUDA=1 python3.8 -m p
     typing-extensions==3.10.0.2 \
     urllib3==1.26.7 \
     visdom==0.1.8.9 \
-    wandb==0.8.36 \
     watchdog==2.1.5 \
     wcwidth==0.2.5 \
     webencodings==0.5.1 \
@@ -226,7 +225,6 @@ RUN python3.8 -m pip install --upgrade pip && \
 RUN python3.8 -m pip install scipy==1.8.0
 
 
-
 # Download, unzip, and install hdbscan
 RUN wget https://github.com/scikit-learn-contrib/hdbscan/archive/master.zip && \
     unzip master.zip && \
@@ -235,23 +233,16 @@ RUN wget https://github.com/scikit-learn-contrib/hdbscan/archive/master.zip && \
     python3.8 -m pip install -r requirements.txt && \
     python3.8 setup.py install
 
-# Clean up unnecessary files and caches
-RUN apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
-    find /usr/local -depth \
-    \( \
-      \( -type d -a -name test -o -name tests \) \
-      -o \
-      \( -type f -a -name '*.pyc' -o -name '*.pyo' \) \
-    \) -exec rm -rf '{}' + ;
+RUN python3.8 -m pip uninstall -y chardet
 
-
+############################################
 # Stage 2: Final stage
+############################################
+
 FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04 AS final
 
-# Set timezone
-RUN ln -fs /usr/share/zoneinfo/Europe/Oslo /etc/localtime
-
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=America/New_York 
 # Copy only necessary files and packages from the builder stage
 # Only copy necessary files from the builder stage
 COPY --from=builder /usr/local/bin /usr/local/bin
@@ -268,9 +259,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     unzip \
     zip \
+    tzdata \
     # ... (any other packages that are required at runtime) ...
+    && ln -fs /usr/share/zoneinfo/$TZ /etc/localtime \
+    && dpkg-reconfigure --frontend noninteractive tzdata \
     && rm -rf /var/lib/apt/lists/*
-
 
 
 RUN python3.8 -m pip install --no-cache-dir \
@@ -278,7 +271,10 @@ RUN python3.8 -m pip install --no-cache-dir \
     numpy==1.24.4 \
     jaklas \
     dask==2021.8.1 \
-    pykdtree==1.3.7.post0
+    pykdtree==1.3.7.post0 \
+    wandb
 
-# run training
+# Create symlink for python command
+RUN ln -s /usr/bin/python3.8 /usr/bin/python
+
 CMD ["bash", "-c", "while true; do sleep 1000; done"]
