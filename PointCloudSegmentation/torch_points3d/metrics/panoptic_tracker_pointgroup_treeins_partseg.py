@@ -731,8 +731,15 @@ class PanopticTracker(SegmentationTracker):
         prediction and the evaluation metrics values for each test file in the outputs folder"""
         if vote_miou and self._test_area:
             for i, test_area_i in enumerate(self._test_area):  # @Treeins: for each test data file
-                per_class_iou = self._confusion_matrix.get_intersection_union_per_class()[0]  # @Treeins
-                self._iou_per_class = {k: v for k, v in enumerate(per_class_iou)}
+                try:
+                    per_class_iou, _ = self._confusion_matrix.get_intersection_union_per_class() # @Treeins
+                    self._iou_per_class = {k: v for k, v in enumerate(per_class_iou)}
+                except (IndexError, ValueError, np.AxisError):
+                    # If confusion_matrix is empty or misdimensioned, assign dummy values
+                    # This is for when input point cloud was assigned dummy ground truth data.
+                    log.warning("Assigning iou to 0, possibly due to dummy ground truth data")
+                    num_classes = 5
+                    self._iou_per_class = {k: 0.0 for k in range(num_classes)}
                 # Complete for points that have a prediction
                 test_area_i = test_area_i.to("cpu")
                 c = ConfusionMatrix(self._num_classes)
@@ -740,8 +747,12 @@ class PanopticTracker(SegmentationTracker):
                 gt = test_area_i.y[has_prediction].numpy()
                 pred = torch.argmax(test_area_i.votes[has_prediction], 1).numpy()
                 gt_effect = gt >= 0
-                c.count_predicted_batch(gt[gt_effect], pred[gt_effect])
-                self._vote_miou = c.get_average_intersection_union() * 100
+                try:
+                    c.count_predicted_batch(gt[gt_effect], pred[gt_effect])
+                    self._vote_miou = c.get_average_intersection_union() * 100
+                except ValueError:
+                    log.warning("Assigning vote_miou to 0 batch possibly due to dummy ground truth data")
+                    self._vote_miou = 0
 
                 if ply_output:
                     has_prediction = test_area_i.prediction_count > 0
@@ -840,14 +851,17 @@ class PanopticTracker(SegmentationTracker):
                         "Instance_Offset_results_forEval.ply",
                     )'''
 
-                    self._dataset.final_eval(
-                        torch.argmax(full_pred, 1).numpy(),
-                        full_ins_pred.numpy(),
-                        test_area_i.pos,
-                        test_area_i.y,
-                        test_area_i.instance_labels,
-                        "Evaluation_{}".format(i),  # @Treeins: save evaulation metrics of current data file
-                    )
+                    try:
+                        self._dataset.final_eval(
+                            torch.argmax(full_pred, 1).numpy(),
+                            full_ins_pred.numpy(),
+                            test_area_i.pos,
+                            test_area_i.y,
+                            test_area_i.instance_labels,
+                            "Evaluation_{}".format(i),  # @Treeins: save evaulation metrics of current data file
+                        )
+                    except ZeroDivisionError as e:
+                        log.warning(f"Skipping final evaluation possibly due to dummy ground truth data causing {e}")
                     # instance prediction with color for "things"
                     things_idx = full_ins_pred != -1
                     self._dataset.to_ins_ply(

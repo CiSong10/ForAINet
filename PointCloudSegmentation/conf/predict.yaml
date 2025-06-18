@@ -1,7 +1,7 @@
 defaults:
   - visualization: eval
 
-num_workers: 2
+num_workers: 4
 batch_size: 1
 cuda: 0
 weight_name: latest
@@ -23,4 +23,7 @@ tracker_options:
 hydra:
   run:
     dir: outputs/TranCanadaHwy/prediction/${now:%Y-%m-%d_%H}
+
+debugging:
+  early_break: True
     

@@ -83,13 +83,29 @@ This version is intended for segmentation outputs without corresponding ground t
 
 ## Direct Deploy
 
-(developing)
+**TL;DR:**
 
-To directly deploy the model on your data, you need to structure it similarly to the provided sample data.
-Your `.ply` data must include the following fields: `('x', 'y', 'z', 'intensity', 'semantic_seg', 'treeID')`
-If your data does not include ground truth labels, you can assign dummy values (e.g., zeros) to `semantic_seg` and `treeID`. You can use the `prepare_data.py` script from my branch to help with this.
+1. Fork my branch or download the following files from my my [branch](https://github.com/CiSong10/ForAINet/tree/ci):
+    *  `prepare_data.py`
+    * `PointCloudSegmentation/torch_points3d/metrics/panoptic_tracker_pointgroup_treeins_partseg.py` 
+2. Ensure the folder `data_set1_5classes/treeinsfused/raw` folder (and data) is in the working directory.
+3. Use `prepare_data.py` convert your LiDAR data into the required format.
+4. Edit the configuration file `PointCloudSegmentation/conf/predict.yaml` (or `eval.yaml` if using main branch)
+5. Run `PointCloudSegmentation/predict.py` (or `eval.py` for main branch)
 
-Edit the configuration file `PointCloudSegmentation/conf/predict.yaml` and run `PointCloudSegmentation/predict.py`.
+**Notes**
+
+To deploy the pretrained model directly on your own data, you `.ply` data must follow the same format as the provided sample data. 
+Specifically, they should include the following fields: 
+`('x', 'y', 'z', 'intensity', 'semantic_seg', 'treeID')`.
+If your dataset lacks ground truth labels, assign placeholder values (e.g., zeros) for `semantic_seg` and `treeID`. 
+You can use  `prepare_data.py` from my branch to help convert your data into the required format.
+
+Probably due to a hardcoded data path in the pretrained model checkpoint, you **must** include the folder `data_set1_5classes/treeinsfused/raw` at the top level of your working directory (not inside any subdirectories), even if you are only implementing the model on your own data.
+Otherwise you will encounter a `NotImplementedError`.
+See [# issue 22](https://github.com/prs-eth/ForAINet/issues/22) for more information.
+
+I modified `PointCloudSegmentation/torch_points3d/metrics/panoptic_tracker_pointgroup_treeins_partseg.py` in my branch to handle issues caused by dummy (zero) ground truth values.
 
 ## Finetune
 
