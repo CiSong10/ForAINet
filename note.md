@@ -85,7 +85,11 @@ This version is intended for segmentation outputs without corresponding ground t
 
 (developing)
 
-`PointCloudSegmentation/predict.py`
+To directly deploy the model on your data, you need to structure it similarly to the provided sample data.
+Your `.ply` data must include the following fields: `('x', 'y', 'z', 'intensity', 'semantic_seg', 'treeID')`
+If your data does not include ground truth labels, you can assign dummy values (e.g., zeros) to `semantic_seg` and `treeID`. You can use the `prepare_data.py` script from my branch to help with this.
+
+Edit the configuration file `PointCloudSegmentation/conf/predict.yaml` and run `PointCloudSegmentation/predict.py`.
 
 ## Finetune
 
