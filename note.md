@@ -55,7 +55,7 @@ Modify configuration in `conf/eval.yaml` (the path to config is defined in `eval
 1. `checkpoint_dir` to your model path
 2. `data` is the (list of) paths for your test data
 
-Hydro will load `config_path/config_name.yml` i.e. `conf/eval.yml` in this case.
+Hydro will load `<config_path>/<config_name>.yml` i.e. `conf/eval.yml` in this case.
 
 ```
 python3 eval.py
@@ -86,10 +86,10 @@ This version is intended for segmentation outputs without corresponding ground t
 **TL;DR:**
 
 1. Fork my branch or download the following files from my my [branch](https://github.com/CiSong10/ForAINet/tree/ci):
-    *  `prepare_data.py`
+    *  `prepare_direct_deployment.py`
     * `PointCloudSegmentation/torch_points3d/metrics/panoptic_tracker_pointgroup_treeins_partseg.py` 
 2. Ensure the folder `data_set1_5classes/treeinsfused/raw` folder (and data) is in the working directory.
-3. Use `prepare_data.py` convert your LiDAR data into the required format.
+3. Use `prepare_direct_deployment.py` convert your LiDAR data into the required format.
 4. Edit the configuration file `PointCloudSegmentation/conf/predict.yaml` (or `eval.yaml` if using main branch)
 5. Run `PointCloudSegmentation/predict.py` (or `eval.py` for main branch)
 
@@ -99,7 +99,7 @@ To deploy the pretrained model directly on your own data, you `.ply` data must f
 Specifically, they should include the following fields: 
 `('x', 'y', 'z', 'intensity', 'semantic_seg', 'treeID')`.
 If your dataset lacks ground truth labels, assign placeholder values (e.g., zeros) for `semantic_seg` and `treeID`. 
-You can use  `prepare_data.py` from my branch to help convert your data into the required format.
+You can use  `prepare_direct_deployment.py` from my branch to help convert your data into the required format.
 
 Probably due to a hardcoded data path in the pretrained model checkpoint, you **must** include the folder `data_set1_5classes/treeinsfused/raw` at the top level of your working directory (not inside any subdirectories), even if you are only implementing the model on your own data.
 Otherwise you will encounter a `NotImplementedError`.
@@ -109,6 +109,23 @@ I modified `PointCloudSegmentation/torch_points3d/metrics/panoptic_tracker_point
 
 ## Finetune
 
+1. In `finetune.yaml` line 1, put the pretrained weight location after `pretrained: `.
+
+2. Run
+    ```
+    python train.py --config-name finetune
+    # test the finetune with fewer epochs:
+    # python PointCloudSegmentation/train.py --config-name finetune training.epochs=5
+    ```
+    This tells `Hydra` to use `conf/finetune.yaml`
+
+
+I modified `torch_points3d/trainer.py`, so that it can load the `pretrained` location from configuration. 
+
+I also added functionaility that you can choose whether to freeze backbone when finetuning.
+
+
+After you get the finetuned model, edit `eval.yaml` (`checkpoint_dir` and `data`, etc.) and run `eval.py`
 
 ## Appendix
 
