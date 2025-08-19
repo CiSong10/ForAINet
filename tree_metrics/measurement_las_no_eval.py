@@ -1,10 +1,3 @@
-"""
-This script is developed based on `tree_metrics/measurement_new.py` but does not require the input point cloud to have ground truth data
-It will only output metrics based on ForAINet prediction.
-TODO: Merge this file with `measurement_new.py`, add a config to tell the script if the input point cloud have ground truth data
-"""
-
-
 import json
 import logging
 import os
@@ -14,6 +7,7 @@ from pathlib import Path
 
 from typing import Any, Dict, List, Optional, Tuple
 
+import laspy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -50,7 +44,6 @@ class TreeMetrics:
     crown_volume_live: Optional[float] = None
     x_location: Optional[float] = None
     y_location: Optional[float] = None
-    # possible pararmeters: leaning angle, live crown ratio
 
 
 @dataclass
@@ -64,8 +57,8 @@ class PlotMetrics:
     mean_iou: Optional[float] = None
 
 
-def process_single_tree(args: tuple):
-    (instance_id, tree_coords, ins_labels, sem_labels, interp_spline, plot_dir, tree_type, config) = args
+def process_single_tree(args_tuple):
+    (instance_id, tree_coords, ins_labels, sem_labels, interp_spline, plot_dir, tree_type, config) = args_tuple
     
     # Get points for this instance
     mask = (ins_labels == instance_id)
@@ -220,25 +213,44 @@ class ForestryAnalyzer:
             self.logger.info(f"Plot {plot_idx}: {file_path} already processed, skipping")
             return
 
-        # For ply data 
-        sem_data, ins_data = self._load_ply_data(input_dir, file_path) 
-        if sem_data is None or ins_data is None:
-            return
+        # # For ply data 
+        # sem_data, ins_data = self._load_ply_data(input_dir, file_path) 
+        # if sem_data is None or ins_data is None:
+        #     return
         
-        coords, labels = self._extract_ply_data(sem_data, ins_data)
+        # coords, labels = self._extract_ply_data(sem_data, ins_data)
 
         # For ForestSens Las data:
-        # coords, labels = self._load_extract_las_data(input_dir, file_path)
 
-        dtm_gt, dtm_pred = self._generate_dtms(coords, labels, plot_dir, plot_suffix)
-        
-        plot_metrics = self._calculate_plot_metrics(coords, labels, dtm_gt, dtm_pred)
-        
-        gt_trees, pred_trees = self._process_trees(coords, labels, dtm_gt, dtm_pred, plot_dir)
+        coords, labels = self._load_extract_las_data(input_dir, file_path)
 
-        tree_metrics = self._match_and_evaluate_trees(gt_trees, pred_trees, plot_idx, test_file_paths, field_file_path)
+        _, dtm_pred = self._generate_dtms(coords, labels, plot_dir, plot_suffix)
         
-        self._save_results(plot_dir, gt_trees, pred_trees, tree_metrics, plot_metrics, labels)
+        plot_metrics = self._calculate_plot_metrics(coords, labels, _, dtm_pred)
+        
+        _, pred_trees = self._process_trees(coords, labels, _, dtm_pred, plot_dir)
+    
+        # ###### for debugging ##########
+        # import pickle
+        # pickle_path = f'cache_{plot_idx}.pkl'
+
+        # variable_dict = {
+        #     'analyzer': self,
+        #     'gt_trees': gt_trees,
+        #     'pred_trees': pred_trees,
+        #     'plot_idx': plot_idx,
+        #     'plot_dir': plot_dir,
+        #     'plot_metrics': plot_metrics,
+        #     'labels': labels
+        # }
+
+        # with open(pickle_path, "wb") as f:
+        #     pickle.dump(variable_dict, f)
+        # ##############################
+
+        tree_metrics = self._match_and_evaluate_trees(_, pred_trees, plot_idx, test_file_paths, field_file_path) # Don't worry this returns an empty dict
+        
+        self._save_results(plot_dir, _, pred_trees, tree_metrics, plot_metrics, labels)
 
     def _load_ply_data(self, input_dir: str, filename: str) -> Tuple[Optional[Any], Optional[Any]]:
         sem_path = os.path.join(input_dir, filename)
@@ -261,7 +273,7 @@ class ForestryAnalyzer:
                   'gt_sem': sem_data['vertex']['gt'],}
         
         return coords, labels
-
+    
     def _load_extract_las_data(self,  input_dir: str, filename: str):
         data_path = os.path.join(input_dir, filename)
         las = laspy.read(data_path)
@@ -605,14 +617,33 @@ class ForestryAnalyzer:
 def main():
     config = ProcessingConfig()
 
-    input_dir = 'outputs/TranCanadaHwy/prediction/2025-06-19_10' 
+    input_dir = 'outputs/TranCanadaHwy_ForestSens' 
     output_dir = os.path.join(input_dir, 'para_cal_imgs')
 
     all_files = os.listdir(input_dir) # all_files gets a list in arbitary order
-    matching_files = [f for f in all_files if 'Semantic_results_forEval' in f] # Adjust file filter
+    matching_files = [f for f in all_files if '.laz' in f] # Adjust file filter
     
     analyzer = ForestryAnalyzer(config)
     analyzer.process_all_plots(matching_files, input_dir, output_dir)
+ 
+    # # Load
+    # import pickle
+    # pickle_path = 'cache_0.pkl'
+    # with open(pickle_path, "rb") as f:
+    #     variable_dict = pickle.load(f)
+
+    # analyzer = variable_dict['analyzer']
+    # gt_trees = variable_dict['gt_trees']
+    # pred_trees = variable_dict['pred_trees']
+    # plot_idx = variable_dict['plot_idx']
+    # plot_dir = variable_dict['plot_dir']
+    # plot_metrics = variable_dict['plot_metrics']
+    # labels = variable_dict['labels']
+
+    # tree_metrics = analyzer._match_and_evaluate_trees(gt_trees, pred_trees, plot_idx, test_file_paths, field_file_path)
+
+    # analyzer._save_results(plot_dir, gt_trees, pred_trees, tree_metrics, plot_metrics, labels)
+    
 
     print("Processing completed!")
 

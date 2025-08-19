@@ -57,8 +57,8 @@ class PlotMetrics:
     mean_iou: Optional[float] = None
 
 
-def process_single_tree(args_tuple):
-    (instance_id, tree_coords, ins_labels, sem_labels, interp_spline, plot_dir, tree_type, config) = args_tuple
+def process_single_tree(args: tuple):
+    (instance_id, tree_coords, ins_labels, sem_labels, interp_spline, plot_dir, tree_type, config) = args
     
     # Get points for this instance
     mask = (ins_labels == instance_id)
@@ -249,6 +249,7 @@ class ForestryAnalyzer:
                   'gt_sem': sem_data['vertex']['gt'],}
         
         return coords, labels
+    
 
     def _generate_dtms(self, coords: Dict, labels: Dict, plot_dir: Path, filename: str) -> Tuple[np.ndarray, np.ndarray]:
         # Ground point indices
@@ -575,7 +576,7 @@ class ForestryAnalyzer:
 def main():
     config = ProcessingConfig()
 
-    input_dir = 'outputs/pretrained/eval/2025-05-27_15-38-23' 
+    input_dir = 'outputs/TranCanadaHwy/prediction/2025-06-19_10' 
     output_dir = os.path.join(input_dir, 'para_cal_imgs')
     test_file_paths = [
         'data/data_set1_5classes/treeinsfused/raw/CULS/CULS_plot_2_annotated_test.ply', 
