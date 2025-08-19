@@ -1,17 +1,20 @@
+pretrained: /home/cisong/ForAINet/outputs/pretrained/PointGroup-PAPER.pt
+freeze_backbone: True
+
 defaults: # for loading the default.yaml config
   - task: panoptic
   - visualization: default
   - lr_scheduler: exponential
   - training: treeins_set1 
   - debugging: default
-  - models: panoptic/FORpartseg_3heads
+  - models: panoptic/FORpartseg_3heads  
   - data: panoptic/treeins_set1
   - sota # Contains current SOTA results on different datasets (extracted from papers !).
 #  - hydra/job_logging: custom
   - hydra/output: custom  # add the support for user-defined experiment folder (where to save the experiment files)
 
 
-job_name: ablation_area4_set2  # prefix name for saving the experiment file.
+job_name: sanity  # prefix name for saving the experiment file.
 model_name: PointGroup-PAPER # Name of the specific model to load
 update_lr_scheduler_on: "on_epoch" # ["on_epoch", "on_num_batch", "on_num_sample"]
 selection_stage: ""
@@ -22,3 +25,20 @@ tracker_options: # Extra options for the tracker
   full_res: False
   make_submission: False
   track_boxes: False
+
+# ==== sanity check overrides ====
+data:
+  forest_regions: ['sanity']
+
+models:
+  PointGroup:
+    loss_weights:
+      semantic: 0.5
+      offset_norm_loss: 1
+      offset_dir_loss: 1
+      score_loss: 1
+
+lr_scheduler:
+  class: ExponentialLR
+  params:
+    gamma: 0.999   # slower decay

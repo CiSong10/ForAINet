@@ -1,5 +1,6 @@
-# Ref: https://github.com/chrischoy/SpatioTemporalSegmentation/blob/master/config.py
 # @package training
+# Ref: https://github.com/chrischoy/SpatioTemporalSegmentation/blob/master/config.py
+
 epochs: 150 #TO ADAPT: specify number of training epochs
 num_workers: 0
 batch_size: 4 #TO ADAPT: specify batch size
