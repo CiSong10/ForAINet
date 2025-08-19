@@ -97,7 +97,15 @@ class Trainer:
             self._dataset: BaseDataset = instantiate_dataset(self._cfg.data)
             self._model: BaseModel = instantiate_model(copy.deepcopy(self._cfg), self._dataset)
             self._model.instantiate_optimizers(self._cfg, "cuda" in device)
-            self._model.set_pretrained_weights()
+            if getattr(self._cfg, "pretrained", None):
+                checkpoint = torch.load(self._cfg.pretrained, map_location=self._device)
+                if "state_dict" in checkpoint:
+                    self._model.load_state_dict(checkpoint["state_dict"], strict=False)
+                    log.info(f"Loaded pretrained weights from {self._cfg.pretrained}")
+                else:
+                    log.warning(f"Pretrained file found at {self._cfg.pretrained}, but 'state_dict' key is missing.")
+            else:
+                self._model.set_pretrained_weights()
             #if not self._checkpoint.validate(self._dataset.used_properties):
             #    log.warning(
             #        "The model will not be able to be used from pretrained weights without the corresponding dataset. Current properties are {}".format(
@@ -139,9 +147,13 @@ class Trainer:
 
         if self.wandb_log:
             Wandb.launch(self._cfg, not self._cfg.training.wandb.public and self.wandb_log)
-
         # Run training / evaluation
         self._model = self._model.to(self._device)
+        if getattr(self._cfg, "freeze_backbone", False):
+            log.info(f"Freezing backbone")
+            for name, param in self._model.named_parameters():
+                if "Backbone" in name:
+                    param.requires_grad = False
         if self.has_visualization:
             self._visualizer = Visualizer(
                 self._cfg.visualization, self._dataset.num_batches, self._dataset.batch_size, os.getcwd()
